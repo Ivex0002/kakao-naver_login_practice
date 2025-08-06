@@ -60,7 +60,6 @@ app.post("/naver/login", (req, res) => {
     .then((naverRes) => res.send(naverRes.data.access_token));
 });
 
-// 🔐 구글 로그인: access_token 요청
 app.post("/google/login", async (req, res) => {
   const code = req.body.authCode;
 
@@ -162,12 +161,20 @@ app.delete("/google/logout", async (req, res) => {
   const { access_token } = req.body;
 
   try {
-    await axios.get(
-      `https://oauth2.googleapis.com/revoke?token=${access_token}`
+    await axios.post(
+      "https://oauth2.googleapis.com/revoke",
+      new URLSearchParams({ token: access_token }).toString(),
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
     );
-    res.send("구글 로그아웃 (revoke) 완료");
+
+    res.send("구글 로그아웃 성공");
   } catch (err) {
-    console.error("Google 로그아웃 실패:", err?.response?.data || err.message);
+    console.error("Google revoke 실패:", err?.response?.data || err.message);
     res.status(500).send("구글 로그아웃 실패");
   }
 });
+
