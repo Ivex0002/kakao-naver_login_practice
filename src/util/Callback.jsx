@@ -1,50 +1,37 @@
 import { useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { useUserStore } from "../store/loginStore";
+import {  useUserStore } from "../store/loginStore";
 
 export function Callback() {
   const navi = useNavigate();
-  const { setUser, set_access_token, serverUrl, set_platform } = useUserStore();
+  const { setUser, set_access_token, serverUrl } = useUserStore();
+    // const { platform } = usePlatformStore();
+  // 지연시간 때문에 스토어가 작동을 안함
 
   useEffect(() => {
     const url = new URL(window.location.href);
     const authCode = url.searchParams.get("code");
-    const naverStatekey = url.searchParams.get("state");
+    const platform = url.searchParams.get("platform");
+    
 
     if (authCode) {
-      if (naverStatekey) {
-        axios.post(`${serverUrl}naver/login`, { authCode }).then((res) => {
-          //   console.log('naver:', res.data)
+      axios
+        .post(`${serverUrl}/${platform}/login`, { authCode })
+        .then((res) => {
           const accessToken = res.data;
           set_access_token(accessToken);
-          axios
-            .post(`${serverUrl}naver/userinfo`, { accessToken })
-            .then((res) => {
-              setUser(res.data);
-              set_platform("naver");
-            })
-            .then(navi("/"));
-        });
-      } else {
-        axios
-          .post(`${serverUrl}kakao/login`, { authCode })
-          .then((res) => {
-            // console.log("로그인 성공", res.data);
-            const accessToken = res.data;
-            set_access_token(accessToken);
-            axios
-              .post(`${serverUrl}kakao/userinfo`, { accessToken })
-              .then((res) => {
-                setUser(res.data);
-                set_platform("kakao");
-              })
-              .then(navi("/"));
-          })
-          .catch((err) => {
-            console.error("로그인 실패", err);
+          return axios.post(`${serverUrl}/${platform}/userinfo`, {
+            accessToken,
           });
-      }
+        })
+        .then((res) => {
+          setUser(res.data);
+          navi("/");
+        })
+        .catch((err) => {
+          console.error("로그인 에러:", err);
+        });
     }
   }, []);
 

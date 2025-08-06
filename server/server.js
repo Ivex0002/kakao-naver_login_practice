@@ -1,16 +1,18 @@
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
-const { useUserStore } = require("../src/store/loginStore");
+require("dotenv").config();
 
 const {
-  kakaoClientId,
-  naverClientId,
-  naverClientSecret,
-  redirectUri,
-  contentType,
-  naverStateKey,
-} = useUserStore.getState();
+  KAKAO_CLIENT_ID,
+  NAVER_CLIENT_ID,
+  NAVER_CLIENT_SECRET,
+  REDIRECT_URI,
+  CONTENT_TYPE,
+  NAVER_STATE_KEY,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+} = process.env;
 
 const app = express();
 
@@ -34,13 +36,13 @@ app.post("/kakao/login", (req, res) => {
       "https://kauth.kakao.com/oauth/token",
       {
         grant_type: "authorization_code",
-        client_id: kakaoClientId,
-        redirect_uri: redirectUri,
+        client_id: KAKAO_CLIENT_ID,
+        redirect_uri: `${REDIRECT_URI}?platform=kakao`,
         code: code,
       },
       {
         headers: {
-          "Content-Type": contentType,
+          "Content-Type": CONTENT_TYPE,
         },
       }
     )
@@ -53,9 +55,40 @@ app.post("/naver/login", (req, res) => {
 
   axios
     .post(
-      `https://nid.naver.com/oauth2.0/token?client_id=${naverClientId}&client_secret=${naverClientSecret}&grant_type=authorization_code&state=${naverStateKey}&code=${code}`
+      `https://nid.naver.com/oauth2.0/token?client_id=${NAVER_CLIENT_ID}&client_secret=${NAVER_CLIENT_SECRET}&grant_type=authorization_code&state=${NAVER_STATE_KEY}&code=${code}`
     )
     .then((naverRes) => res.send(naverRes.data.access_token));
+});
+
+// 🔐 구글 로그인: access_token 요청
+app.post("/google/login", async (req, res) => {
+  const code = req.body.authCode;
+
+  const redirect_uri = `${REDIRECT_URI}?platform=google`;
+
+  try {
+    const tokenRes = await axios.post(
+      "https://oauth2.googleapis.com/token",
+      {
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri,
+        grant_type: "authorization_code",
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const access_token = tokenRes.data.access_token;
+    res.send(access_token);
+  } catch (err) {
+    console.error("Google 로그인 실패:", err?.response?.data || err.message);
+    res.status(500).send("구글 로그인 실패");
+  }
 });
 
 app.post("/kakao/userinfo", (req, res) => {
@@ -65,7 +98,7 @@ app.post("/kakao/userinfo", (req, res) => {
     .get("https://kapi.kakao.com/v2/user/me", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Content-Type": contentType,
+        "Content-Type": CONTENT_TYPE,
       },
     })
     .then((kakaoRes) => res.send(kakaoRes.data.properties));
@@ -80,6 +113,26 @@ app.post("/naver/userinfo", (req, res) => {
       },
     })
     .then((naverRes) => res.send(naverRes.data.response));
+});
+
+app.post("/google/userinfo", async (req, res) => {
+  const { accessToken } = req.body;
+
+  try {
+    const userRes = await axios.get(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    res.send(userRes.data);
+  } catch (err) {
+    console.error("Google 유저 정보 오류:", err?.response?.data || err.message);
+    res.status(500).send("유저 정보 불러오기 실패");
+  }
 });
 
 app.delete("/kakao/logout", (req, res) => {
@@ -100,7 +153,21 @@ app.delete("/naver/logout", (req, res) => {
   //   console.log("access_token:", access_token);
   axios
     .post(
-      `https://nid.naver.com/oauth2.0/token?grant_type=delete&client_id=${naverClientId}&client_secret=${naverClientSecret}&access_token=${access_token}&service_provider=NAVER`
+      `https://nid.naver.com/oauth2.0/token?grant_type=delete&client_id=${NAVER_CLIENT_ID}&client_secret=${NAVER_CLIENT_SECRET}&access_token=${access_token}&service_provider=NAVER`
     )
     .then(res.send("로그아웃 되었습니다"));
+});
+
+app.delete("/google/logout", async (req, res) => {
+  const { access_token } = req.body;
+
+  try {
+    await axios.get(
+      `https://oauth2.googleapis.com/revoke?token=${access_token}`
+    );
+    res.send("구글 로그아웃 (revoke) 완료");
+  } catch (err) {
+    console.error("Google 로그아웃 실패:", err?.response?.data || err.message);
+    res.status(500).send("구글 로그아웃 실패");
+  }
 });

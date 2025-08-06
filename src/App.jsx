@@ -1,21 +1,24 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { useUserStore } from "./store/loginStore";
+import { usePlatformStore, useUserStore } from "./store/loginStore";
 import axios from "axios";
 
 function App() {
+  const { user, access_token, clear_access_token, serverUrl } = useUserStore();
+
   const {
-    user,
-    access_token,
-    clear_access_token,
-    redirectUri,
-    kakaoClientId,
-    naverClientId,
-    naverStateKey,
-    serverUrl,
-    platform,
-    clear_platform,
-  } = useUserStore();
+    VITE_KAKAO_CLIENT_ID: KAKAO_CLIENT_ID,
+    VITE_NAVER_CLIENT_ID: NAVER_CLIENT_ID,
+    VITE_REDIRECT_URI: REDIRECT_URI,
+    VITE_NAVER_STATE_KEY: NAVER_STATE_KEY,
+    VITE_GOOGLE_CLIENT_ID: GOOGLE_CLIENT_ID,
+  } = import.meta.env;
+
+  const { platform, set_platform, clear_platform } = usePlatformStore();
+
+  useEffect(() => {
+    console.log("platform:", platform);
+  }, [platform]);
 
   const [userInfo, setUserInfo] = useState({
     // 빈 객체 써도 되지만 자료구조 명시용으로 작성함
@@ -36,23 +39,42 @@ function App() {
     getUser();
   }, [user]);
 
-  const kakaoUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${kakaoClientId}&redirect_uri=${redirectUri}&response_type=code`;
+  const handleLogin = (value) => {
+    set_platform(value);
+    const redirectUriWithPlatform = `${REDIRECT_URI}?platform=${value}`;
+    const kakaoUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_CLIENT_ID}&redirect_uri=${redirectUriWithPlatform}&response_type=code`;
+    const naverUrl = `https://nid.naver.com/oauth2.0/authorize?client_id=${NAVER_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriWithPlatform}&state=${NAVER_STATE_KEY}`;
+    const googleParams = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: redirectUriWithPlatform,
+      response_type: "code",
+      scope: "openid email profile",
+      // state: generateRandomStrir(16),
+    });
+    const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?${googleParams.toString()}`;
 
-  const naverUrl = `https://nid.naver.com/oauth2.0/authorize?client_id=${naverClientId}&response_type=code&redirect_uri=${redirectUri}&state=${naverStateKey}`;
-
-  // console.log(kakaoUrl);
-
-  const handleLoginKakao = () => {
-    location.href = kakaoUrl;
-  };
-
-  const handleLoginNaver = () => {
-    location.href = naverUrl;
+    switch (value) {
+      case "kakao":
+        window.location.href = kakaoUrl;
+        break;
+      case "naver":
+        window.location.href = naverUrl;
+        break;
+      case "google":
+        window.location.href = googleUrl;
+        break;
+      default:
+        console.error("알 수 없는 플랫폼:", value);
+    }
   };
 
   const handleLogout = () => {
+    if (!platform) {
+      console.error("platform 정보가 없습니다");
+      return;
+    }
     axios
-      .delete(`${serverUrl}${platform}/logout`, {
+      .delete(`${serverUrl}/${platform}/logout`, {
         data: { access_token },
       })
       .then((res) => {
@@ -62,17 +84,19 @@ function App() {
           nickname: null,
           thumbnail_image: null,
         });
+
+        clear_access_token();
+        clear_platform();
       });
-    clear_access_token();
-    clear_platform();
   };
 
   return (
     <>
       <h1>OAuth2.0 실습</h1>
       <div className="login_buttons">
-        <button onClick={() => handleLoginKakao()}>카카오</button>
-        <button onClick={() => handleLoginNaver()}>네이버</button>
+        <button onClick={() => handleLogin("kakao")}>카카오</button>
+        <button onClick={() => handleLogin("naver")}>네이버</button>
+        <button onClick={() => handleLogin("google")}>구글</button>
       </div>
       <div className="user_info">
         {/* <img src={userInfo.profile_image} alt="유저 프로필 사진" /> */}

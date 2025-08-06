@@ -1,13 +1,8 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
-export const useUserStore = create((set, get) => ({
-  serverUrl: "http://localhost:3000/",
-  kakaoClientId: "6cac4506cae0a4135b2b5cdf245fe70f",
-  naverClientId: "kUfKYluf6SbhWOIcUZc7",
-  redirectUri: "http://localhost:5173/callback",
-  contentType: "application/x-www-form-urlencoded;charset=utf-8",
-  naverClientSecret: "yEvWNEuhgQ",
-  naverStateKey: "hello_naver",
+export const useUserStore = create((set) => ({
+  serverUrl: "http://localhost:3000",
 
   user: null,
   setUser: (userData) => {
@@ -24,12 +19,41 @@ export const useUserStore = create((set, get) => ({
   clear_access_token: () => {
     set({ access_token: null });
   },
-
-  platform: "",
-  set_platform: (platform) => {
-    set({ platform: platform });
-  },
-  clear_platform: () => {
-    set({ platform: "" });
-  },
 }));
+
+export const usePlatformStore = create(
+  persist(
+    (set) => ({
+      platform: "",
+      set_platform: (value) => {
+        set({ platform: value });
+      },
+      clear_platform: () => {
+        set({ platform: "" });
+      },
+    }),
+    {
+      name: "platform_store",
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
+// export const usePlatformStore = create(
+//   persist(
+//     (set) => ({
+//       platform: "",
+//       set_platform: (value) => {
+//         set({ platform: value });
+//       },
+//       clear_platform: () => {
+//         set({ platform: "" });
+//       },
+//     }),
+//     {
+//       name: "platform_store",
+//       storage: localStorage,
+//       문자열 처리 안됨....
+//       [object Object]이렇게 뜸....
+//     }
+//   )
+// );
