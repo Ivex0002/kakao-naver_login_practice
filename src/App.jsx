@@ -29,11 +29,14 @@ function App() {
   useEffect(() => {
     async function getUser() {
       if (!user) return;
+      console.log(user);
+      
       setUserInfo({
         // 카카오 : nickname, thumbnail_image
         // 네이버 : name, profile_image(썸넬이미지 없)
-        nickname: user.nickname ?? user.name,
-        thumbnail_image: user.thumbnail_image ?? user.profile_image,
+        // 구글 : name, picture
+        nickname: user.nickname ?? user.name ,
+        thumbnail_image: user.thumbnail_image ?? user.profile_image ?? user.picture,
       });
     }
     getUser();
